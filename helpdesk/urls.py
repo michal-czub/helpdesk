@@ -23,6 +23,7 @@ urlpatterns = [
     path('projects/', include('project.urls')),
     path('boards/', include('board.urls')),
     path('stages/', include('stage.urls')),
+    path('applications/', include('application.urls')),
 ]
 if django.conf.settings.DEBUG:
     urlpatterns += static(django.conf.settings.MEDIA_URL, document_root=django.conf.settings.MEDIA_ROOT)

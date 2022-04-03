@@ -1,10 +1,12 @@
 from rest_framework import serializers
 from project.models import Project
 from board.serializers import BoardSerializer
+from application.serializers import ApplicationSerializer
 
 class ProjectSerializer(serializers.ModelSerializer):
     #board = serializers.SerializerMethodField()
     boards = BoardSerializer(many=True, read_only=True)
+    applications = ApplicationSerializer(many=True, read_only=True)
     #def get_board(self, instance):
      #   return (board.get_details() for board in instance.boards.all())
 
@@ -16,4 +18,5 @@ class ProjectSerializer(serializers.ModelSerializer):
             "name",
             "boards",
             #"board",
+            "applications",
         )
