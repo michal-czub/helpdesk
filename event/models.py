@@ -10,12 +10,12 @@ import uuid
 class Event(models.Model):
     app = models.ForeignKey(Application, related_name="events", on_delete=models.CASCADE)
     # event może nie mieć przypisanego pracownika / zespołu
-    staff = models.ForeignKey(Staff, related_name="events", on_delete=models.SET_NULL, null=True)
-    team = models.ForeignKey(Team, related_name="events", on_delete=models.SET_NULL, null=True)
+    staff = models.ForeignKey(Staff, related_name="events", on_delete=models.SET_NULL, null=True, blank=True)
+    team = models.ForeignKey(Team, related_name="events", on_delete=models.SET_NULL, null=True, blank=True)
     # usuwając board -> usuwamy eventy w boardzie
     board = models.ForeignKey(Board, related_name="events", on_delete=models.CASCADE)
     # usuwając stage, event nadal jest częścią danego board'a
-    stage = models.ForeignKey(Stage, related_name="events", on_delete=models.SET_NULL, null=True)
+    stage = models.ForeignKey(Stage, related_name="events", on_delete=models.SET_NULL, null=True, blank=True)
     client = models.ForeignKey(Client, related_name="events", on_delete=models.CASCADE)
     # assigned_to = models.ManyToManyField(Staff, related_name="events")
 
@@ -84,10 +84,10 @@ class Event(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4(), editable=False)
-    signature = models.CharField(max_length=14)
+    signature = models.CharField(max_length=14)  # perform_create
     created_at = models.DateTimeField(auto_now_add=True)
-    reported_at = models.DateTimeField()
-    finished_at = models.DateTimeField()
+    reported_at = models.DateTimeField()    # client sends timezone.now()
+    finished_at = models.DateTimeField(blank=True)    # staff decides
     status = models.CharField(choices=STATUS, default=NEW, max_length=255)
     functionality = models.CharField(choices=FUNCTIONALITY, blank=True, max_length=255)
     subject = models.CharField(choices=SUBJECT, max_length=255)
