@@ -22,6 +22,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('projects/', include('project.urls')),
     path('boards/', include('board.urls')),
+    path('stages/', include('stage.urls')),
 ]
 if django.conf.settings.DEBUG:
     urlpatterns += static(django.conf.settings.MEDIA_URL, document_root=django.conf.settings.MEDIA_ROOT)

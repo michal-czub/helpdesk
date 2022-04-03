@@ -5,8 +5,8 @@ from board.serializers import BoardSerializer
 class ProjectSerializer(serializers.ModelSerializer):
     #board = serializers.SerializerMethodField()
     boards = BoardSerializer(many=True, read_only=True)
-    # def get_board(self, instance):
-    #     return (board.get_details() for board in instance.boards.all())
+    #def get_board(self, instance):
+     #   return (board.get_details() for board in instance.boards.all())
 
     class Meta:
         model = Project
@@ -15,4 +15,5 @@ class ProjectSerializer(serializers.ModelSerializer):
             "url",
             "name",
             "boards",
+            #"board",
         )
