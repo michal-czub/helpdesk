@@ -5,10 +5,10 @@ from application.serializers import ApplicationSerializer
 
 class ProjectSerializer(serializers.ModelSerializer):
     #board = serializers.SerializerMethodField()
-    boards = BoardSerializer(many=True, read_only=True)
-    applications = ApplicationSerializer(many=True, read_only=True)
-    #def get_board(self, instance):
-     #   return (board.get_details() for board in instance.boards.all())
+    boards = BoardSerializer(many=True)
+    applications = ApplicationSerializer(many=True)
+    # def get_board(self, instance):
+    #   return (board.get_details() for board in instance.boards.all())
 
     class Meta:
         model = Project
@@ -19,4 +19,5 @@ class ProjectSerializer(serializers.ModelSerializer):
             "boards",
             #"board",
             "applications",
+           # "application",
         )

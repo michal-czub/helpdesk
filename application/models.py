@@ -16,5 +16,8 @@ class Application(models.Model):
             "name": self.name,
         }
 
+    def get_name(self):
+        return self.name
+
     def get_project_details(self):
         return self.project.get_details()
