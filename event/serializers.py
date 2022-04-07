@@ -58,8 +58,8 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
     assigned_by = serializers.SerializerMethodField(read_only=True)
     staff_name = serializers.SerializerMethodField()
     app_name = serializers.SerializerMethodField()
-    consultation = serializers.SerializerMethodField()
-    consultations = ConsultationSerializer(many=True)
+    #consultation = serializers.SerializerMethodField()
+    consultations = ConsultationSerializer(many=True, read_only=True)
 
     def get_staff_name(self, instance):
         return instance.get_staff_name()
@@ -70,8 +70,8 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
     def get_assigned_by(self, instance):
         return instance.get_client_details()
 
-    def get_consultation(self, instance):
-        return (consultation.get_details() for consultation in instance.consultations.all())
+    # def get_consultation(self, instance):
+    #     return (consultation.get_details() for consultation in instance.consultations.all())
 
     class Meta:
         model = Event
@@ -95,7 +95,7 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
             # Send by:
             "assigned_by",
             # Consultation:
-            "consultation",
+            # "consultation",
             "consultations",
         )
 
