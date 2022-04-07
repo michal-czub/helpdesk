@@ -3,20 +3,136 @@ import string
 import datetime
 import requests
 from requests_jwt import JWTAuth
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated  # dodać własne z is_staff
 from rest_framework.decorators import action
+from django_filters import rest_framework as filters
+from rest_framework.filters import SearchFilter#,# OrderingFilter
 from event.models import Event
 from stage.models import Stage
 from client.models import Client
+from staff.models import Staff
+from application.models import Application
 from consultation.models import Consultation
 from event.serializers import (StaffListEventSerializer, StaffRetrieveEventSerializer,
                                ClientListEventSerializer, ClientRetrieveEventSerializer,
                                CreateEventSerializer)
 
+class EventFilter(filters.FilterSet):
+    # SEARCH-FIELD
+    signature = filters.CharFilter(lookup_expr="icontains")
+
+    # ORDERING - SORTING
+    sorting = filters.OrderingFilter(
+        fields=(
+            ('status', 'status'),
+            ('priority', 'priority'),
+            ('reported_at', 'reported_at'),
+        )
+    )
+
+    NEW = "new"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
+
+    STATUS = [
+        (NEW, "New"),
+        (IN_PROGRESS, "In progress"),
+        (RESOLVED, "Event resolved"),
+    ]
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+    ACCOUNTANCY = "accountancy"
+    PEOPLE = "people"
+    PRODUCTION = "production"
+    PRODUCTS = "products"
+    WAREHOUSE = "warehouse"
+    REPORT = "report"
+    TRANSPORT = "transport"
+    ORDERS_AND_COMPLAINTS = "orders_and_complaints"
+
+    FUNCTIONALITY = [
+        (ACCOUNTANCY, "Accountancy"),
+        (PEOPLE, "People"),
+        (PRODUCTION, "Production"),
+        (PRODUCTS, "Products"),
+        (WAREHOUSE, "Warehouse"),
+        (REPORT, "Report"),
+        (TRANSPORT, "Transport"),
+        (ORDERS_AND_COMPLAINTS, "Orders and complaints"),
+    ]
+
+    NEW_FEATURE = "I need a new feature"
+    HELP = "I need help"
+    REMARK = "I have remarks about application"
+    ERROR = "Bug in application"
+
+    SUBJECT = [
+        (NEW_FEATURE, "I need a new feature"),
+        (HELP, "I need help"),
+        (REMARK, "I have remarks about application"),
+        (ERROR, "Bug in application"),
+    ]
+
+    PRIORITY = [
+        (LOW, "Low"),
+        (MEDIUM, "Medium"),
+        (HIGH, "High"),
+    ]
+
+    BUG = "bug"
+    FEATURE = "feature"
+    IMPORTANT = "important"
+    CRITICAL = "critical"
+
+    LABEL = [
+        (BUG, "Bug"),
+        (FEATURE, "Feature"),
+        (IMPORTANT, "Important"),
+        (CRITICAL, "Critical"),
+    ]
+
+    # CHOICE-FIELD
+    status = filters.ChoiceFilter(field_name="status", empty_label="All", choices=STATUS)
+    priority = filters.ChoiceFilter(field_name="priority", empty_label="All", choices=PRIORITY)
+    application = filters.ModelChoiceFilter(
+        field_name="app", empty_label="All",
+        queryset=Application.objects.all()
+    )
+    client = filters.ModelChoiceFilter(
+        field_name="client", empty_label="All",
+        queryset=Client.objects.all()
+    )
+    subject = filters.ChoiceFilter(field_name="subject", empty_label="All", choices=SUBJECT)
+    reported_at = filters.NumberFilter(field_name="reported_at",
+                                 method="get_past_n_weeks", label="Weeks since report")
+
+    def get_past_n_weeks(self, queryset, field_name, value):
+        time_threshold = timezone.now() - timedelta(hours=int(value))
+        return queryset.filter(reported_at__gte=time_threshold)
+
+    functionality = filters.ChoiceFilter(field_name="functionality", empty_label="All", choices=FUNCTIONALITY)
+    label = filters.ChoiceFilter(field_name="label", empty_label="All", choices=LABEL)
+    staff = filters.ModelChoiceFilter(
+        field_name="staff", empty_label="All",
+        queryset=Staff.objects.all()
+    )
+
 class StaffEventViewSet(ModelViewSet):
     queryset = Event.objects.all()
     permission_classes = [IsAuthenticated]
+    filter_backends = (filters.DjangoFilterBackend, SearchFilter)
+    # filter_fields = (
+    #     'status',
+    #     'priority',
+    #     'client',
+    # )
+    filterset_class = EventFilter
 
     def perform_update(self, serializer):
         instance = self.get_object()
