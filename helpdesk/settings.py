@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'stage',
     'application',
     'client',
+    'message',
 ]
 
 REST_FRAMEWORK = {

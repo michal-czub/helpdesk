@@ -1,3 +1,5 @@
+from abc import ABC
+
 from rest_framework import serializers
 from client.models import Client
 
@@ -22,3 +24,18 @@ class ClientSerializer(serializers.ModelSerializer):
             "events",
             "key",
         )
+
+# class Message(object):
+#     def __init__(self, status, info):
+#         self.status = status
+#         self.info = info
+#
+# class MessageSerializer(serializers.Serializer):
+#     status = serializers.CharField()
+#     info = serializers.CharField()
+
+    # class Meta:
+    #     fields = (
+    #         "status",
+    #         "info",
+    #     )

@@ -94,7 +94,7 @@ class Event(models.Model):
     priority = models.CharField(choices=PRIORITY, blank=True, max_length=255)
     label = models.CharField(choices=LABEL, blank=True, max_length=255)
     description = models.CharField(max_length=500, default="")
-    attachment = models.FileField(blank=True)  # upload_to
+    attachment = models.FileField(blank=True)
     is_assana_integrated = models.BooleanField(default=False)
 
     def __str__(self):

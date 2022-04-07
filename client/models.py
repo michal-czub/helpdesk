@@ -22,7 +22,7 @@ class Client(models.Model):
     def get_details(self):
         return {
             "id": self.id,
-            "url": self.url_message,
+            "url_message": self.url_message,
             "name": self.name,
             "company": self.company,
             "phone_number": str(self.phone_number),
@@ -30,5 +30,5 @@ class Client(models.Model):
         }
 
     def save(self, *args, **kwargs):
-        self.url_message = "http://127.0.0.1:8000/clients/" + str(self.id) + "/message/"
+        self.url_message = "http://127.0.0.1:8000/message/"# + str(self.id)
         super().save(*args, **kwargs)
