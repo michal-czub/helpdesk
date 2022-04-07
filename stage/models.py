@@ -43,9 +43,7 @@ class Stage(models.Model):
         }
 
     def get_name(self):
-        return {
-            "name": self.name
-        }
+        return self.name
 
     class Meta:
         ordering = ["order"]

@@ -15,9 +15,7 @@ class Client(models.Model):
         return self.name
 
     def get_name(self):
-        return {
-            "name": self.name,
-        }
+        return self.name
 
     def get_details(self):
         return {
@@ -25,6 +23,13 @@ class Client(models.Model):
             "url_message": self.url_message,
             "name": self.name,
             "company": self.company,
+            "phone_number": str(self.phone_number),
+            "email": self.email,
+        }
+
+    def get_details_for_consultation(self):
+        return {
+            "name": self.name,
             "phone_number": str(self.phone_number),
             "email": self.email,
         }

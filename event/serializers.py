@@ -9,8 +9,8 @@ from stage.serializers import StageSerializer
 # # signature, client, created_at, app, functionality, subject, has_attachment(attachment=False/True),
 # # staff
 class StaffListEventSerializer(serializers.ModelSerializer):
-    client = serializers.SerializerMethodField() # client name todo only
-    application = serializers.SerializerMethodField() # jedna na event
+    client = serializers.SerializerMethodField()
+    application = serializers.SerializerMethodField()  # jedna na event
     #staff = serializers.SerializerMethodField(allow_null=True)
     stage = serializers.SerializerMethodField()
     signature = serializers.CharField(read_only=True)
@@ -47,9 +47,6 @@ class StaffListEventSerializer(serializers.ModelSerializer):
             "staff",
         )
 
-# TODO 1: Defaultowy stage dla nowopowstałego eventu
-# TODO 2:
-
 # details for staff
 class StaffRetrieveEventSerializer(serializers.ModelSerializer):
     signature = serializers.CharField(read_only=True)
@@ -60,6 +57,7 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
     assigned_by = serializers.SerializerMethodField(read_only=True)
     staff_name = serializers.SerializerMethodField()
     app_name = serializers.SerializerMethodField()
+    #consultation =
 
     def get_staff_name(self, instance):
         return instance.get_staff_name()
@@ -69,9 +67,6 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
 
     def get_assigned_by(self, instance):
         return instance.get_client_details()
-
-    #  TODO 5: ACTION - PO UPDATE'CIE STATUSU - MESSAGE NA JAKIŚ ENDPOINT ŻE ZMIANA
-    #  TODO 6: ACTION - PO UPDATE'CIE STATUSU NA ZAKOŃCZONE - MESSAGE NA JAKIŚ ENDPOINT ŻE KONIEC
 
     class Meta:
         model = Event
