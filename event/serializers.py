@@ -2,6 +2,7 @@ from rest_framework import serializers
 from event.models import Event
 from datetime import timezone
 from application.serializers import ApplicationSerializer
+from consultation.serializers import ConsultationSerializer
 from stage.serializers import StageSerializer
 # from client.serializers import ClientSerializer
 
@@ -57,7 +58,8 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
     assigned_by = serializers.SerializerMethodField(read_only=True)
     staff_name = serializers.SerializerMethodField()
     app_name = serializers.SerializerMethodField()
-    #consultation =
+    consultation = serializers.SerializerMethodField()
+    consultations = ConsultationSerializer(many=True)
 
     def get_staff_name(self, instance):
         return instance.get_staff_name()
@@ -67,6 +69,9 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
 
     def get_assigned_by(self, instance):
         return instance.get_client_details()
+
+    def get_consultation(self, instance):
+        return (consultation.get_details() for consultation in instance.consultations.all())
 
     class Meta:
         model = Event
@@ -89,11 +94,14 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
             "attachment",
             # Send by:
             "assigned_by",
+            # Consultation:
+            "consultation",
+            "consultations",
         )
 
 class CreateEventSerializer(serializers.ModelSerializer):
-    #client = serializers.PrimaryKeyRelatedField(queryset=clients.objects.)
     key = serializers.CharField(style={"input_type": "password"}, write_only=True)
+    date = serializers.DateTimeField(write_only=True)
     reported_at = serializers.DateTimeField(read_only=True)
     stages = StageSerializer(many=True, read_only=True)
 
@@ -105,15 +113,15 @@ class CreateEventSerializer(serializers.ModelSerializer):
             "functionality",
             "description",
             "attachment",
-            #"client",
             "reported_at",
             "stages",
-            # "consultation",
             "key",
+            "date",
         )
 
     def create(self, validated_data):
-        key = validated_data.pop("key")
+        validated_data.pop("key")
+        validated_data.pop("date")
         return Event.objects.create(**validated_data)
 
 class ClientListEventSerializer(serializers.ModelSerializer):

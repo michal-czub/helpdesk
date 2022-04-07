@@ -31,6 +31,7 @@ urlpatterns = [
     path('events/', include('event.urls')),
     path('clients/', include('client.urls')),
     path('message/', include('message.urls')),
+    path('consultations/', include('consultation.urls')),
 ]
 if django.conf.settings.DEBUG:
     urlpatterns += static(django.conf.settings.MEDIA_URL, document_root=django.conf.settings.MEDIA_ROOT)

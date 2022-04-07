@@ -37,7 +37,7 @@ class StaffEventViewSet(ModelViewSet):
             payload = {"status": self.request.data["status"], "info": "Your ticket is being processed",
                        "status_changed_by": self.request.user, "date": datetime.datetime.now()}
             head = {'Authorization': 'Bearer {}'.format(myToken)}
-            requests.post("http://127.0.0.1:8000/message/", data=payload, headers=head)
+            requests.post(url_message, data=payload, headers=head)
             serializer.save(finished_at=None)
         else:
             serializer.save(finished_at=None)
@@ -64,10 +64,9 @@ class ClientEventViewSet(ModelViewSet):
         today = datetime.date.today()
         client = Client.objects.get(key=self.request.data["key"])  # TODO 3: Dodać walidację (co gdy nie matchuje)
         stage = Stage.objects.get(name="Nowe")
-        serializer.save(signature="Z {number}/{month}/{year}/{letter}".format(number=random.randrange(0, 99),
+        event = serializer.save(signature="Z {number}/{month}/{year}/{letter}".format(number=random.randrange(0, 99),
                                                                               month=today.month, year=today.year,
                                                                               letter=random.choice(
                                                                                   string.ascii_uppercase)),
-                        reported_at=datetime.datetime.now(), client=client)
-        import pdb; pdb.set_trace()
-        Consultation.objects.create(date=datetime.datetime.now(), is_confirmed=False, client=client)
+                                reported_at=datetime.datetime.now(), client=client)
+        Consultation.objects.create(date=self.request.data["date"], is_confirmed=False, client=client, event=event)
