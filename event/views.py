@@ -1,6 +1,8 @@
 import random
 import string
 import datetime
+
+import asana
 import requests
 from requests_jwt import JWTAuth
 from django.utils import timezone
@@ -9,7 +11,6 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated  # dodać własne z is_staff
 from rest_framework.decorators import action
 from django_filters import rest_framework as filters
-from rest_framework.filters import SearchFilter#,# OrderingFilter
 from event.models import Event
 from stage.models import Stage
 from client.models import Client
@@ -19,6 +20,7 @@ from consultation.models import Consultation
 from event.serializers import (StaffListEventSerializer, StaffRetrieveEventSerializer,
                                ClientListEventSerializer, ClientRetrieveEventSerializer,
                                CreateEventSerializer)
+
 
 class EventFilter(filters.FilterSet):
     # SEARCH-FIELD
@@ -110,7 +112,7 @@ class EventFilter(filters.FilterSet):
     )
     subject = filters.ChoiceFilter(field_name="subject", empty_label="All", choices=SUBJECT)
     reported_at = filters.NumberFilter(field_name="reported_at",
-                                 method="get_past_n_weeks", label="Weeks since report")
+                                       method="get_past_n_weeks", label="Weeks since report")
 
     def get_past_n_weeks(self, queryset, field_name, value):
         time_threshold = timezone.now() - timedelta(hours=int(value))
@@ -123,15 +125,26 @@ class EventFilter(filters.FilterSet):
         queryset=Staff.objects.all()
     )
 
+
+class AsanaViewSet(ModelViewSet):
+    queryset = Event.objects.all()
+    permission_classes = [IsAuthenticated]
+    serializer_class = StaffRetrieveEventSerializer
+
+
+class MyEventViewSet(ModelViewSet):
+    serializer_class = StaffListEventSerializer
+    filter_backends = (filters.DjangoFilterBackend,)
+    filterset_class = EventFilter
+
+    def get_queryset(self):
+        return Event.objects.filter(staff=self.request.user)
+
+
 class StaffEventViewSet(ModelViewSet):
     queryset = Event.objects.all()
     permission_classes = [IsAuthenticated]
-    filter_backends = (filters.DjangoFilterBackend, SearchFilter)
-    # filter_fields = (
-    #     'status',
-    #     'priority',
-    #     'client',
-    # )
+    filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = EventFilter
 
     def perform_update(self, serializer):
@@ -142,24 +155,102 @@ class StaffEventViewSet(ModelViewSet):
         client = Client.objects.get(id=test)
         url_message = client._meta.get_fields()[-1].value_from_object(client)
         # value2 = test2[-1].value_from_object(client)
-        myToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjQ5MzI4MDc3LCJpYXQiOjE2NDkxNTUyNzcsImp0aSI6ImNlNTFlNmE3OGM5YTQzYTI5ZWI5YWMzYjBmYmQxZDhiIiwidXNlcl9pZCI6IjFiOWM1Y2FhLTcwMzQtNDg2OS1hNWRhLTg3NWMzYjg4NzgyZCIsInBob25lX251bWJlciI6Iis0ODYwOTIwMDUwMCJ9.LwmRNDbzKQZkAUqfnAOsUYR0ywfYpM9aTF1QV11Oj2I"
+        myToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjQ5NTI4OTU0LCJpYXQiOjE2NDkzNTYxNTQsImp0aSI6ImEzM2Y2NWQyM2EwNzQwMzFhMWExODYxYTlkNzY0OWZkIiwidXNlcl9pZCI6IjFiOWM1Y2FhLTcwMzQtNDg2OS1hNWRhLTg3NWMzYjg4NzgyZCIsInBob25lX251bWJlciI6Iis0ODYwOTIwMDUwMCJ9.D0G9jQxdPe9qjN7cijpAHBJiaAWdUpyw7hQ1ewKnM30"
         if self.request.data["status"] == "resolved" and self.request.user.is_authenticated:
             payload = {"status": self.request.data["status"], "info": "Ticket closed",
                        "status_changed_by": self.request.user, "date": datetime.datetime.now()}
             head = {'Authorization': 'Bearer {}'.format(myToken)}
             requests.post(url_message, data=payload, headers=head)
-            serializer.save(finished_at=datetime.datetime.now())
+            #serializer.save(finished_at=datetime.datetime.now())
+            serializer.save()
         elif self.request.data["status"] == "in_progress" and self.request.user.is_authenticated:
             payload = {"status": self.request.data["status"], "info": "Your ticket is being processed",
                        "status_changed_by": self.request.user, "date": datetime.datetime.now()}
             head = {'Authorization': 'Bearer {}'.format(myToken)}
             requests.post(url_message, data=payload, headers=head)
-            serializer.save(finished_at=None)
+            # serializer.save(finished_at=None)
+            serializer.save()
         else:
-            serializer.save(finished_at=None)
-        # TODO:  dorobienie obsługi Konsultacji telefonicznej - Jak powiązać event z jedocześnie tworzoną konsultacją
+            #serializer.save(finished_at=None)
+            serializer.save()
+
+        if self.request.data["is_assana_integrated"] and self.request.user.is_authenticated:
+            personal_access_token = "1/1202094629495646:6680f4afe76349bad7e6f0bd61bf46c8"
+            header_asana = {'Authorization': f'Bearer {personal_access_token}'}
+            asana_client = asana.Client.access_token(personal_access_token)
+            workspace_id = asana_client.users.me()['workspaces'][0]['gid']
+            # project_id = "1202094676283541"
+
+            # GET PROJECT ID =================================
+            get_projects_url = f"https://app.asana.com/api/1.0/projects/?workspace={workspace_id}"
+            projects = requests.get(get_projects_url, headers=header_asana)
+            for data in projects.json()["data"]:
+                if data["name"] == "helpdesk":
+                    project_id = data["gid"]
+            # =================================================
+
+            # SEARCH FOR SECTION / STAGE AND CREATE NEW STAGE =
+            sections_url = f"https://app.asana.com/api/1.0/projects/{project_id}/sections"
+            get_sections = requests.get(sections_url, headers=header_asana)
+            section_flag = False
+            if instance.stage is not None:
+                print("instance stage jest OK")
+                for section in get_sections.json()["data"]:
+                    if section["name"] == instance.stage.name:
+                        print("juz istnieje taki stage")
+                        section_flag = True
+                        break
+            if section_flag is False and instance.stage is not None:
+                payload_create_section = {
+                    "name": instance.stage,
+                }
+                requests.post(sections_url, data=payload_create_section, headers=header_asana)
+                print(f"postuje sekcje {instance.stage}")
+
+            # =================================================
+
+            # CREATE TASK FOR PROJECT =========================
+            # due_at = instance.finished_at if instance.finished_at else
+            if instance.finished_at:
+                due_at = instance.finished_at
+            else:
+                due_at = None
+
+            payload_create_task = {
+                    "projects": project_id,
+                    "name": instance.signature,
+                    "assignee": asana_client.users.me()['gid'],
+                    #"due_at": due_at,
+            }
+            # Check if task with same signature exists: (if so -> don't send)
+            task_flag = False
+            get_tasks = requests.get(f"https://app.asana.com/api/1.0/tasks/?project={project_id}",
+                                     headers=header_asana)
+            for task in get_tasks.json()["data"]:
+                if task["name"] == instance.signature:
+                    task_flag = True
+                    print("task name taki sam jak instance signature")
+                    break
+
+            if instance.stage is not None and task_flag is not True:
+                print("instance stage jest ok ")
+                get_sections = requests.get(sections_url, headers=header_asana)
+                for section in get_sections.json()["data"]:
+                    if section["name"] == instance.stage.name:
+                        section_id = section["gid"]
+                        requests.post(f"https://app.asana.com/api/1.0/tasks/?assignee_section={section_id}",
+                                      data=payload_create_task, headers=header_asana)
+            elif instance.stage is None and task_flag is not True:
+                print("Wysyłam bez sekcji")
+                requests.post(f"https://app.asana.com/api/1.0/tasks/?start_at={datetime.datetime.now()}",
+                              data=payload_create_task, headers=header_asana)
+            # ==================================================
+
+            import pdb; pdb.set_trace()
+        else:
+            serializer.save(is_assana_integrated=False)
+
         # TODO:  assana
-        # TODO:  filtry i searchfield
         # TODO:  testy do modeli - potem
         # TODO:  widoki dla clienta - lista jego zleceń i szczegółowy widok zlecenia - potem
 
@@ -170,19 +261,23 @@ class StaffEventViewSet(ModelViewSet):
             return StaffRetrieveEventSerializer
         return StaffRetrieveEventSerializer
 
+
 class ClientEventViewSet(ModelViewSet):
     queryset = Event.objects.all()
     serializer_class = CreateEventSerializer
+
     # permission_classes = # todo: Tylko client może tworzyć nowe zgłoszenia
 
     def perform_create(self, serializer):
-        #instance = self.get_object()
+        # instance = self.get_object()
         today = datetime.date.today()
         client = Client.objects.get(key=self.request.data["key"])  # TODO 3: Dodać walidację (co gdy nie matchuje)
         stage = Stage.objects.get(name="Nowe")
         event = serializer.save(signature="Z {number}/{month}/{year}/{letter}".format(number=random.randrange(0, 99),
-                                                                              month=today.month, year=today.year,
-                                                                              letter=random.choice(
-                                                                                  string.ascii_uppercase)),
+                                                                                      month=today.month,
+                                                                                      year=today.year,
+                                                                                      letter=random.choice(
+                                                                                          string.ascii_uppercase)),
                                 reported_at=datetime.datetime.now(), client=client)
-        Consultation.objects.create(date=self.request.data["date"], is_confirmed=False, client=client, event=event)
+        Consultation.objects.create(date=self.request.data["consultation_date"], is_confirmed=False, client=client,
+                                    event=event)
