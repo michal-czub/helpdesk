@@ -1,14 +1,14 @@
 import random
 import string
 import datetime
-
 import asana
 import requests
 from requests_jwt import JWTAuth
+from django.utils.datastructures import MultiValueDictKeyError
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticated  # dodać własne z is_staff
+from rest_framework.permissions import (IsAuthenticated, AllowAny)  # dodać własne z is_staff
 from rest_framework.decorators import action
 from django_filters import rest_framework as filters
 from event.models import Event
@@ -173,84 +173,119 @@ class StaffEventViewSet(ModelViewSet):
         else:
             #serializer.save(finished_at=None)
             serializer.save()
+        try:
+            if self.request.data["is_assana_integrated"] and self.request.user.is_authenticated:
+                personal_access_token = ""
+                header_asana = {'Authorization': f'Bearer {personal_access_token}'}
+                asana_client = asana.Client.access_token(personal_access_token)
+                workspace_id = asana_client.users.me()['workspaces'][0]['gid']
 
-        if self.request.data["is_assana_integrated"] and self.request.user.is_authenticated:
-            personal_access_token = "1/1202094629495646:6680f4afe76349bad7e6f0bd61bf46c8"
-            header_asana = {'Authorization': f'Bearer {personal_access_token}'}
-            asana_client = asana.Client.access_token(personal_access_token)
-            workspace_id = asana_client.users.me()['workspaces'][0]['gid']
-            # project_id = "1202094676283541"
+                # GET PROJECT ID =================================
+                get_projects_url = f"https://app.asana.com/api/1.0/projects/?workspace={workspace_id}"
+                projects = requests.get(get_projects_url, headers=header_asana)
+                for data in projects.json()["data"]:
+                    if data["name"] == "helpdesk":
+                        project_id = data["gid"]
+                # =================================================
 
-            # GET PROJECT ID =================================
-            get_projects_url = f"https://app.asana.com/api/1.0/projects/?workspace={workspace_id}"
-            projects = requests.get(get_projects_url, headers=header_asana)
-            for data in projects.json()["data"]:
-                if data["name"] == "helpdesk":
-                    project_id = data["gid"]
-            # =================================================
-
-            # SEARCH FOR SECTION / STAGE AND CREATE NEW STAGE =
-            sections_url = f"https://app.asana.com/api/1.0/projects/{project_id}/sections"
-            get_sections = requests.get(sections_url, headers=header_asana)
-            section_flag = False
-            if instance.stage is not None:
-                print("instance stage jest OK")
-                for section in get_sections.json()["data"]:
-                    if section["name"] == instance.stage.name:
-                        print("juz istnieje taki stage")
-                        section_flag = True
-                        break
-            if section_flag is False and instance.stage is not None:
-                payload_create_section = {
-                    "name": instance.stage,
-                }
-                requests.post(sections_url, data=payload_create_section, headers=header_asana)
-                print(f"postuje sekcje {instance.stage}")
-
-            # =================================================
-
-            # CREATE TASK FOR PROJECT =========================
-            # due_at = instance.finished_at if instance.finished_at else
-            if instance.finished_at:
-                due_at = instance.finished_at
-            else:
-                due_at = None
-
-            payload_create_task = {
-                    "projects": project_id,
-                    "name": instance.signature,
-                    "assignee": asana_client.users.me()['gid'],
-                    #"due_at": due_at,
-            }
-            # Check if task with same signature exists: (if so -> don't send)
-            task_flag = False
-            get_tasks = requests.get(f"https://app.asana.com/api/1.0/tasks/?project={project_id}",
-                                     headers=header_asana)
-            for task in get_tasks.json()["data"]:
-                if task["name"] == instance.signature:
-                    task_flag = True
-                    print("task name taki sam jak instance signature")
-                    break
-
-            if instance.stage is not None and task_flag is not True:
-                print("instance stage jest ok ")
+                # SEARCH FOR SECTION / STAGE AND CREATE NEW STAGE =
+                sections_url = f"https://app.asana.com/api/1.0/projects/{project_id}/sections"
                 get_sections = requests.get(sections_url, headers=header_asana)
-                for section in get_sections.json()["data"]:
-                    if section["name"] == instance.stage.name:
-                        section_id = section["gid"]
-                        requests.post(f"https://app.asana.com/api/1.0/tasks/?assignee_section={section_id}",
-                                      data=payload_create_task, headers=header_asana)
-            elif instance.stage is None and task_flag is not True:
-                print("Wysyłam bez sekcji")
-                requests.post(f"https://app.asana.com/api/1.0/tasks/?start_at={datetime.datetime.now()}",
-                              data=payload_create_task, headers=header_asana)
-            # ==================================================
+                section_flag = False
+                if instance.stage is not None:
+                    print("instance stage jest OK")
+                    for section in get_sections.json()["data"]:
+                        if section["name"] == instance.stage.name:
+                            print("juz istnieje taki stage")
+                            section_flag = True
+                            break
+                if section_flag is False and instance.stage is not None:
+                    payload_create_section = {
+                        "name": instance.stage,
+                    }
+                    requests.post(sections_url, data=payload_create_section, headers=header_asana)
+                    print(f"postuje sekcje {instance.stage}")
 
-            import pdb; pdb.set_trace()
-        else:
+                # =================================================
+
+                # CREATE TASK FOR PROJECT =========================
+                # due_at = instance.finished_at if instance.finished_at else
+                if instance.finished_at:
+                    due_at = instance.finished_at
+                else:
+                    due_at = None
+                current_time = datetime.datetime.now()
+                if instance.finished_at:
+                    # timedelta - server (2h)
+                    finish_due = (instance.finished_at - timedelta(hours=2)).isoformat()
+                elif self.request.data["finished_at"]:
+                    print("pobieram datę z self.request.data")
+                    temp = datetime.datetime.strptime(self.request.data["finished_at"], "%Y-%m-%dT%H:%M").isoformat()
+                    finish_due = datetime.datetime.strptime(temp, "%Y-%m-%dT%H:%M:%S")-timedelta(seconds=0.1)
+                    # finish_due = finish_due.isoformat()
+                    # finish_due = datetime.datetime.strptime(self.request.data["finished_at"], "%Y-%m-%dT%H:%M:%S")
+                    #finish_due = self.request.data["finished_at"]
+                else:
+                    print("Ustawiam finish-due -> None")
+                    finish_due = None
+                payload_create_task = {
+                        "projects": project_id,
+                        "name": instance.signature,
+                        "assignee": asana_client.users.me()['gid'],
+                        #"notes": "przykladowy opis",
+                        "notes": f"Task added on: {instance.reported_at}\n"
+                                 f"Clients description: {instance.description}\n"
+                                 f"Subject: {instance.subject}\n"
+                                 f"Functionality: {instance.functionality}\n"
+                                 f"Application: {instance.app.name}\n"                                 
+                                 f"Status: {instance.status}\n"
+                                 f"Priority: {instance.priority}\n"
+                                 f"Board: {instance.board}\n"
+                                 f"Stage: {instance.stage}\n"
+                                 #f"Staff member assigned: {instance.staff.name}\n\n"
+                                 f"Client: {instance.client.name}\n"
+                                 f"Company: {instance.client.company}\n"
+                                 f"Phone number: {instance.client.phone_number}\n"
+                                 f"Email: {instance.client.email}\n\n",
+                                 # f"Consultation details: {instance.consultations.}",
+                        "due_at": finish_due,
+                        # "start_at": "2022-09-15T02:06:58.147Z"
+                }
+                # Check if task with same signature exists: (if so -> don't send)
+                task_flag = False
+                get_tasks = requests.get(f"https://app.asana.com/api/1.0/tasks/?project={project_id}&start_at={current_time}",
+                                         headers=header_asana)
+                for task in get_tasks.json()["data"]:
+                    if task["name"] == instance.signature:
+                        task_flag = True
+                        print("task name taki sam jak instance signature")
+                        break
+
+                if instance.stage is not None and task_flag is not True:
+                    print("instance stage jest ok ")
+                    get_sections = requests.get(sections_url, headers=header_asana)
+                    for section in get_sections.json()["data"]:
+                        if section["name"] == instance.stage.name:
+                            section_id = section["gid"]
+                            requests.post(f"https://app.asana.com/api/1.0/tasks/?assignee_section={section_id}",
+                                          data=payload_create_task, headers=header_asana)
+                        # else:
+                        #     requests.post(f"https://app.asana.com/api/1.0/tasks",
+                        #                   data=payload_create_task, headers=header_asana)
+                elif instance.stage is None and task_flag is not True:
+                    print("Wysyłam bez sekcji")
+                    requests.post(f"https://app.asana.com/api/1.0/tasks",
+                                  data=payload_create_task, headers=header_asana)
+                    # ?start_at = {current_time}
+                # ==================================================
+                # import pdb; pdb.set_trace()
+        except MultiValueDictKeyError:
             serializer.save(is_assana_integrated=False)
+            # elif self.request.data["is_assana_integrated"] is False and self.request.user.is_authenticated:
+            #     print("Jestem w elif is assana integrated is False")
+            #     import pdb; pdb.set_trace()
+            #     serializer.save(is_assana_integrated=False)
 
-        # TODO:  assana
         # TODO:  testy do modeli - potem
         # TODO:  widoki dla clienta - lista jego zleceń i szczegółowy widok zlecenia - potem
 
@@ -265,19 +300,23 @@ class StaffEventViewSet(ModelViewSet):
 class ClientEventViewSet(ModelViewSet):
     queryset = Event.objects.all()
     serializer_class = CreateEventSerializer
-
-    # permission_classes = # todo: Tylko client może tworzyć nowe zgłoszenia
+    permission_classes = [AllowAny,]
 
     def perform_create(self, serializer):
         # instance = self.get_object()
         today = datetime.date.today()
         client = Client.objects.get(key=self.request.data["key"])  # TODO 3: Dodać walidację (co gdy nie matchuje)
-        stage = Stage.objects.get(name="Nowe")
+        # stage = Stage.objects.get(name="Nowe")
+        if Stage.objects.get(name="Nowe"):
+            stage = Stage.objects.get(name="Nowe")
+        else:
+            stage = None
         event = serializer.save(signature="Z {number}/{month}/{year}/{letter}".format(number=random.randrange(0, 99),
                                                                                       month=today.month,
                                                                                       year=today.year,
                                                                                       letter=random.choice(
                                                                                           string.ascii_uppercase)),
-                                reported_at=datetime.datetime.now(), client=client)
-        Consultation.objects.create(date=self.request.data["consultation_date"], is_confirmed=False, client=client,
-                                    event=event)
+                                reported_at=datetime.datetime.now(), client=client, stage=stage)
+        if self.request.data["consultation_date"]:
+            Consultation.objects.create(date=self.request.data["consultation_date"], is_confirmed=False, client=client,
+                                        event=event)

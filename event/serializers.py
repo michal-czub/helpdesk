@@ -54,7 +54,7 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
     reported_at = serializers.DateTimeField(read_only=True)
     finished_at = serializers.DateTimeField(allow_null=True)
     subject = serializers.CharField(read_only=True)
-    stage = serializers.SerializerMethodField()
+    # stage = serializers.SerializerMethodField()
     description = serializers.CharField(read_only=True)
     assigned_by = serializers.SerializerMethodField(read_only=True)
     staff_name = serializers.SerializerMethodField()
@@ -71,8 +71,8 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
     def get_assigned_by(self, instance):
         return instance.get_client_details()
 
-    def get_stage(self, instance):
-        return instance.get_stage_name()
+    # def get_stage(self, instance):
+    #     return instance.get_stage_name()
 
     # def get_consultation(self, instance):
     #     return (consultation.get_details() for consultation in instance.consultations.all())
@@ -90,6 +90,7 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
             "staff",
             "staff_name",
             "stage",
+            # "stages",
             "board",
             "app",
             "app_name",
@@ -108,7 +109,7 @@ class StaffRetrieveEventSerializer(serializers.ModelSerializer):
 
 class CreateEventSerializer(serializers.ModelSerializer):
     key = serializers.CharField(style={"input_type": "password"}, write_only=True)
-    consultation_date = serializers.DateTimeField(write_only=True)
+    consultation_date = serializers.DateTimeField(write_only=True, allow_null=True)
     reported_at = serializers.DateTimeField(read_only=True)
     stages = StageSerializer(many=True, read_only=True)
 
@@ -129,6 +130,7 @@ class CreateEventSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop("key")
         validated_data.pop("consultation_date")
+        # import pdb; pdb.set_trace()
         return Event.objects.create(**validated_data)
 
 class ClientListEventSerializer(serializers.ModelSerializer):
