@@ -1,37 +1,28 @@
 from django.db import models
 from staff.models import Staff
-from team.models import Team
-from application.models import Application
-from board.models import Board
-from stage.models import Stage
 from client.models import Client
 import uuid
 
 class Event(models.Model):
-    app = models.ForeignKey(Application, related_name="events", on_delete=models.CASCADE)
-    # event może nie mieć przypisanego pracownika / zespołu
-    staff = models.ForeignKey(Staff, related_name="events", on_delete=models.SET_NULL, null=True, blank=True)
-    team = models.ForeignKey(Team, related_name="events", on_delete=models.SET_NULL, null=True, blank=True)
-    # usuwając board -> usuwamy eventy w boardzie
-    board = models.ForeignKey(Board, related_name="events", on_delete=models.CASCADE, null=True, blank=True)
-    # usuwając stage, event nadal jest częścią danego board'a
-    stage = models.ForeignKey(Stage, related_name="events", on_delete=models.SET_NULL, null=True, blank=True)
-    client = models.ForeignKey(Client, related_name="events", on_delete=models.CASCADE)
-    # assigned_to = models.ManyToManyField(Staff, related_name="events")
-
     NEW = "new"
     IN_PROGRESS = "in_progress"
     RESOLVED = "resolved"
 
-    STATUS = [
+    STATUS_CHOICES = (
         (NEW, "New"),
         (IN_PROGRESS, "In progress"),
         (RESOLVED, "Event resolved"),
-    ]
+    )
 
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+
+    PRIORITY_CHOICES = (
+        (LOW, "Low"),
+        (MEDIUM, "Medium"),
+        (HIGH, "High"),
+    )
 
     ACCOUNTANCY = "accountancy"
     PEOPLE = "people"
@@ -42,7 +33,7 @@ class Event(models.Model):
     TRANSPORT = "transport"
     ORDERS_AND_COMPLAINTS = "orders_and_complaints"
 
-    FUNCTIONALITY = [
+    FUNCTIONALITY_CHOICES = (
         (ACCOUNTANCY, "Accountancy"),
         (PEOPLE, "People"),
         (PRODUCTION, "Production"),
@@ -51,48 +42,84 @@ class Event(models.Model):
         (REPORT, "Report"),
         (TRANSPORT, "Transport"),
         (ORDERS_AND_COMPLAINTS, "Orders and complaints"),
-    ]
+    )
 
     NEW_FEATURE = "I need a new feature"
     HELP = "I need help"
     REMARK = "I have remarks about application"
     ERROR = "Bug in application"
 
-    SUBJECT = [
+    SUBJECT_CHOICES = (
         (NEW_FEATURE, "I need a new feature"),
         (HELP, "I need help"),
         (REMARK, "I have remarks about application"),
         (ERROR, "Bug in application"),
-    ]
-
-    PRIORITY = [
-        (LOW, "Low"),
-        (MEDIUM, "Medium"),
-        (HIGH, "High"),
-    ]
+    )
 
     BUG = "bug"
     FEATURE = "feature"
     IMPORTANT = "important"
     CRITICAL = "critical"
 
-    LABEL = [
+    LABEL_CHOICES = (
         (BUG, "Bug"),
         (FEATURE, "Feature"),
         (IMPORTANT, "Important"),
         (CRITICAL, "Critical"),
-    ]
+    )
+
+    app = models.ForeignKey(
+        "application.Application",
+        related_name="events",
+        on_delete=models.CASCADE
+    )
+    # event can have no staff or team assigned
+    staff = models.ForeignKey(
+        "staff.Staff",
+        related_name="events",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    team = models.ForeignKey(
+        "team.Team",
+        related_name="events",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    # deleting board means deleting events related to this board
+    board = models.ForeignKey(
+        "board.Board",
+        related_name="events",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+    # deleting stage means its events stay as a part of certain board
+    stage = models.ForeignKey(
+        "stage.Stage",
+        related_name="events",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    client = models.ForeignKey(
+        "client.Client",
+        related_name="events",
+        on_delete=models.CASCADE
+    )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4(), editable=False)
-    signature = models.CharField(max_length=14)  # perform_create
+    signature = models.CharField(max_length=14)  # perform_create --> create in managers.py
     created_at = models.DateTimeField(auto_now_add=True)
     reported_at = models.DateTimeField()    # client sends timezone.now()
     finished_at = models.DateTimeField(blank=True, null=True)    # staff decides
-    status = models.CharField(choices=STATUS, default=NEW, max_length=255)
-    functionality = models.CharField(choices=FUNCTIONALITY, blank=True, max_length=255)
-    subject = models.CharField(choices=SUBJECT, max_length=255)
-    priority = models.CharField(choices=PRIORITY, blank=True, max_length=255)
-    label = models.CharField(choices=LABEL, blank=True, max_length=255)
+    status = models.CharField(choices=STATUS_CHOICES, default=NEW, max_length=255)
+    functionality = models.CharField(choices=FUNCTIONALITY_CHOICES, blank=True, max_length=255)
+    subject = models.CharField(choices=SUBJECT_CHOICES, max_length=255)
+    priority = models.CharField(choices=PRIORITY_CHOICES, blank=True, max_length=255)
+    label = models.CharField(choices=LABEL_CHOICES, blank=True, max_length=255)
     description = models.CharField(max_length=500, default="")
     attachment = models.FileField(blank=True)
     is_assana_integrated = models.BooleanField(default=False)
@@ -161,9 +188,25 @@ class Event(models.Model):
         }
 
 class Course(models.Model):
-    event = models.ForeignKey(Event, related_name="courses", on_delete=models.CASCADE)
-    client = models.ForeignKey(Client, related_name="courses", on_delete=models.SET_NULL, blank=True, null=True)
-    staff = models.ForeignKey(Staff, related_name="courses", on_delete=models.SET_NULL, blank=True, null=True)
+    event = models.ForeignKey(
+        "event.Event",
+        related_name="courses",
+        on_delete=models.CASCADE
+    )
+    client = models.ForeignKey(
+        "client.Client",
+        related_name="courses",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True
+    )
+    staff = models.ForeignKey(
+        "staff.Staff",
+        related_name="courses",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True
+    )
 
     message = models.CharField(max_length=1000)
     created_at = models.DateTimeField(auto_now_add=True)
