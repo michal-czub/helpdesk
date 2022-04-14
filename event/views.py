@@ -3,15 +3,13 @@ import string
 import datetime
 import asana
 import requests
-from requests_jwt import JWTAuth
 from django.utils.datastructures import MultiValueDictKeyError
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import (IsAuthenticated, AllowAny)  # dodać własne z is_staff
-from rest_framework.decorators import action
+from rest_framework.permissions import (IsAuthenticated, AllowAny)
 from django_filters import rest_framework as filters
-from event.models import Event
+from event.models import Event, Course
 from stage.models import Stage
 from client.models import Client
 from staff.models import Staff
@@ -19,7 +17,7 @@ from application.models import Application
 from consultation.models import Consultation
 from event.serializers import (StaffListEventSerializer, StaffRetrieveEventSerializer,
                                ClientListEventSerializer, ClientRetrieveEventSerializer,
-                               CreateEventSerializer)
+                               CreateEventSerializer, CourseSerializer)
 
 
 class EventFilter(filters.FilterSet):
@@ -142,7 +140,8 @@ class MyEventViewSet(ModelViewSet):
 
 
 class StaffEventViewSet(ModelViewSet):
-    queryset = Event.objects.all()
+    queryset = Event.objects.select_related("app", "staff", "team", "board", "stage", "client").all()
+    # queryset = Event.objects.all()
     permission_classes = [IsAuthenticated]
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = EventFilter
@@ -155,7 +154,7 @@ class StaffEventViewSet(ModelViewSet):
         client = Client.objects.get(id=test)
         url_message = client._meta.get_fields()[-1].value_from_object(client)
         # value2 = test2[-1].value_from_object(client)
-        myToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjQ5NTI4OTU0LCJpYXQiOjE2NDkzNTYxNTQsImp0aSI6ImEzM2Y2NWQyM2EwNzQwMzFhMWExODYxYTlkNzY0OWZkIiwidXNlcl9pZCI6IjFiOWM1Y2FhLTcwMzQtNDg2OS1hNWRhLTg3NWMzYjg4NzgyZCIsInBob25lX251bWJlciI6Iis0ODYwOTIwMDUwMCJ9.D0G9jQxdPe9qjN7cijpAHBJiaAWdUpyw7hQ1ewKnM30"
+        myToken = ""
         if self.request.data["status"] == "resolved" and self.request.user.is_authenticated:
             payload = {"status": self.request.data["status"], "info": "Ticket closed",
                        "status_changed_by": self.request.user, "date": datetime.datetime.now()}
@@ -286,9 +285,6 @@ class StaffEventViewSet(ModelViewSet):
             #     import pdb; pdb.set_trace()
             #     serializer.save(is_assana_integrated=False)
 
-        # TODO:  testy do modeli - potem
-        # TODO:  widoki dla clienta - lista jego zleceń i szczegółowy widok zlecenia - potem
-
     def get_serializer_class(self):
         if self.action == "list":
             return StaffListEventSerializer
@@ -296,17 +292,26 @@ class StaffEventViewSet(ModelViewSet):
             return StaffRetrieveEventSerializer
         return StaffRetrieveEventSerializer
 
+class EventCourseViewSet(ModelViewSet):
+    def get_queryset(self):
+        queryset = Course.objects.select_related("event").all()
+        return queryset.filter(event=self.kwargs["id"]).all()
+
+    serializer_class = CourseSerializer
+    permission_classes = [AllowAny, ]
+
+    def perform_create(self, serializer):
+        event = Event.objects.get(id=self.kwargs["id"])
+        serializer.save(event=event, staff=self.request.user)
 
 class ClientEventViewSet(ModelViewSet):
     queryset = Event.objects.all()
     serializer_class = CreateEventSerializer
-    permission_classes = [AllowAny,]
+    permission_classes = [AllowAny, ]
 
     def perform_create(self, serializer):
-        # instance = self.get_object()
         today = datetime.date.today()
-        client = Client.objects.get(key=self.request.data["key"])  # TODO 3: Dodać walidację (co gdy nie matchuje)
-        # stage = Stage.objects.get(name="Nowe")
+        client = Client.objects.get(key=self.request.data["key"])
         if Stage.objects.get(name="Nowe"):
             stage = Stage.objects.get(name="Nowe")
         else:
@@ -320,3 +325,6 @@ class ClientEventViewSet(ModelViewSet):
         if self.request.data["consultation_date"]:
             Consultation.objects.create(date=self.request.data["consultation_date"], is_confirmed=False, client=client,
                                         event=event)
+        Course.objects.create(event=event, client=client, message=event.description, attachment=event.attachment)
+        Course.objects.create(event=event, message="Przyjeliśmy Twoje zgłoszenie i pracujemy nad jego "
+                                                   "rozwiązaniem! Napisz do nas jeśli masz jeszcze jakieś pytania.")

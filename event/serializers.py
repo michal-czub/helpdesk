@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from event.models import Event
+from event.models import Event, Course
 from datetime import timezone
 from application.serializers import ApplicationSerializer
 from consultation.serializers import ConsultationSerializer
@@ -136,9 +136,46 @@ class CreateEventSerializer(serializers.ModelSerializer):
 class ClientListEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
-        fields = ()
+        fields = (
+            "id",
+            "url",
+            "signature",
+            "subject",
+            "created_at",
+            "status",
+            "priority",
+            "has_attachment",
+            "functionality",
+            #"application",
+        )
 
 class ClientRetrieveEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = ()
+
+class CourseSerializer(serializers.ModelSerializer):
+    event = serializers.SerializerMethodField(read_only=True)
+    client = serializers.SerializerMethodField(read_only=True)
+    staff = serializers.SerializerMethodField(read_only=True)
+
+    def get_event(self, instance):
+        return instance.get_event_details()
+
+    def get_client(self, instance):
+        return instance.get_client_name()
+
+    def get_staff(self, instance):
+        return instance.get_staff_name()
+
+    class Meta:
+        model = Course
+        fields = (
+            "id",
+            "message",
+            "created_at",
+            "attachment",
+            "event",
+            "client",
+            "staff",
+        )

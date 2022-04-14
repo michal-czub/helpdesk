@@ -5,6 +5,6 @@ from consultation.models import Consultation
 from consultation.serializers import ConsultationSerializer
 
 class ConsultationViewSet(ModelViewSet):
-    queryset = Consultation.objects.all()
+    queryset = Consultation.objects.select_related("event", "client").all()
     serializer_class = ConsultationSerializer
     permission_classes = [IsAuthenticated]

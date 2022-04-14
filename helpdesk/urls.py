@@ -22,6 +22,7 @@ import client.views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('__debug__/', include('debug_toolbar.urls')),
     path('projects/', include('project.urls')),
     path('boards/', include('board.urls')),
     path('stages/', include('stage.urls')),

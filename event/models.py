@@ -153,3 +153,32 @@ class Event(models.Model):
             "client": self.client,
             "board": self.board,
         }
+
+    def get_details_for_course(self):
+        return {
+            "id": self.id,
+            "signature": self.signature,
+        }
+
+class Course(models.Model):
+    event = models.ForeignKey(Event, related_name="courses", on_delete=models.CASCADE)
+    client = models.ForeignKey(Client, related_name="courses", on_delete=models.SET_NULL, blank=True, null=True)
+    staff = models.ForeignKey(Staff, related_name="courses", on_delete=models.SET_NULL, blank=True, null=True)
+
+    message = models.CharField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    attachment = models.FileField(blank=True)
+
+    def get_event_details(self):
+        return self.event.get_details_for_course()
+
+    def get_client_name(self):
+        return self.client.__str__()
+
+    def get_staff_name(self):
+        return self.staff.__str__()
+
+    class Meta:
+        ordering = [
+            "-created_at"
+        ]
